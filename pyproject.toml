@@ -79,6 +79,10 @@ dynamic = ["version"]
 "BentoML Official Blog" = "https://modelserving.com"
 "BentoML Twitter" = "https://twitter.com/bentomlai"
 
+[tool.poetry]
+name = "BentoML"
+version = "1.0.17"
+
 [project.scripts]
 bentoml = "bentoml_cli.cli:cli"
 
