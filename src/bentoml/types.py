@@ -1,4 +1,7 @@
-from ._internal.models.model import ModelSignature
-from ._internal.types import ModelSignatureDict
+from typing import TYPE_CHECKING
 
-__all__ = ["ModelSignature", "ModelSignatureDict"]
+if TYPE_CHECKING:
+    from ._internal.models.model import ModelSignature
+    from ._internal.models.model import ModelSignatureDict
+
+    __all__ = ["ModelSignature", "ModelSignatureDict"]

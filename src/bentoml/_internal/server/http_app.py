@@ -1,34 +1,33 @@
 from __future__ import annotations
 
-import asyncio
-import functools
-import logging
 import os
 import sys
 import typing as t
+import asyncio
+import logging
+import functools
 
-from simple_di import Provide
 from simple_di import inject
-from starlette.exceptions import HTTPException
+from simple_di import Provide
 from starlette.responses import PlainTextResponse
+from starlette.exceptions import HTTPException
 
-from ...exceptions import BentoMLException
-from ..configuration.containers import BentoMLContainer
 from ..context import trace_context
+from ..context import InferenceApiContext as Context
+from ...exceptions import BentoMLException
 from ..server.base_app import BaseAppFactory
 from ..service.service import Service
+from ..configuration.containers import BentoMLContainer
 
 if t.TYPE_CHECKING:
-    from opentelemetry.sdk.trace import Span
-    from starlette.applications import Starlette
-    from starlette.middleware import Middleware
+    from starlette.routing import BaseRoute
     from starlette.requests import Request
     from starlette.responses import Response
-    from starlette.routing import BaseRoute
+    from starlette.middleware import Middleware
+    from starlette.applications import Starlette
+    from opentelemetry.sdk.trace import Span
 
     from ..service.inference_api import InferenceAPI
-
-    LifecycleHook = t.Callable[[], None | t.Coroutine[t.Any, t.Any, None]]
 
 
 logger = logging.getLogger(__name__)
@@ -106,15 +105,11 @@ class HTTPAppFactory(BaseAppFactory):
         enable_metrics: bool = Provide[
             BentoMLContainer.api_server_config.metrics.enabled
         ],
-        timeout: int = Provide[BentoMLContainer.api_server_config.traffic.timeout],
-        max_concurrency: int
-        | None = Provide[BentoMLContainer.api_server_config.traffic.max_concurrency],
-    ):
+    ) -> None:
         self.bento_service = bento_service
         self.enable_access_control = enable_access_control
         self.access_control_options = access_control_options
         self.enable_metrics = enable_metrics
-        super().__init__(timeout=timeout, max_concurrency=max_concurrency)
 
     @property
     def name(self) -> str:
@@ -225,7 +220,7 @@ class HTTPAppFactory(BaseAppFactory):
             middlewares.append(Middleware(HTTPTrafficMetricsMiddleware))
 
         # otel middleware
-        from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+        import opentelemetry.instrumentation.asgi as otel_asgi
 
         def client_request_hook(span: Span, _: dict[str, t.Any]) -> None:
             if span is not None:
@@ -233,7 +228,7 @@ class HTTPAppFactory(BaseAppFactory):
 
         middlewares.append(
             Middleware(
-                OpenTelemetryMiddleware,
+                otel_asgi.OpenTelemetryMiddleware,
                 excluded_urls=BentoMLContainer.tracing_excluded_urls.get(),
                 default_span_details=None,
                 server_request_hook=None,
@@ -261,20 +256,14 @@ class HTTPAppFactory(BaseAppFactory):
         return middlewares
 
     @property
-    def on_startup(self) -> list[LifecycleHook]:
-        on_startup = [
-            *self.bento_service.startup_hooks,
-            self.bento_service.on_asgi_app_startup,
-        ]
+    def on_startup(self) -> list[t.Callable[[], None]]:
+        on_startup = [self.bento_service.on_asgi_app_startup]
         if BentoMLContainer.development_mode.get():
             for runner in self.bento_service.runners:
                 on_startup.append(functools.partial(runner.init_local, quiet=True))
         else:
             for runner in self.bento_service.runners:
-                if runner.embedded:
-                    on_startup.append(functools.partial(runner.init_local, quiet=True))
-                else:
-                    on_startup.append(runner.init_client)
+                on_startup.append(runner.init_client)
         on_startup.extend(super().on_startup)
         return on_startup
 
@@ -291,11 +280,8 @@ class HTTPAppFactory(BaseAppFactory):
         return PlainTextResponse("\n", status_code=200)
 
     @property
-    def on_shutdown(self) -> list[LifecycleHook]:
-        on_shutdown = [
-            *self.bento_service.shutdown_hooks,
-            self.bento_service.on_asgi_app_shutdown,
-        ]
+    def on_shutdown(self) -> list[t.Callable[[], None]]:
+        on_shutdown = [self.bento_service.on_asgi_app_shutdown]
         for runner in self.bento_service.runners:
             on_shutdown.append(runner.destroy)
         on_shutdown.extend(super().on_shutdown)
@@ -307,98 +293,92 @@ class HTTPAppFactory(BaseAppFactory):
             app.mount(app=mount_app, path=path, name=name)
         return app
 
+    @staticmethod
     def _create_api_endpoint(
-        self,
         api: InferenceAPI,
     ) -> t.Callable[[Request], t.Coroutine[t.Any, t.Any, Response]]:
         """
         Create api function for flask route, it wraps around user defined API
         callback and adapter class, and adds request logging and instrument metrics
         """
-        from starlette.concurrency import run_in_threadpool  # type: ignore
         from starlette.responses import JSONResponse
-
-        from ..utils import is_async_callable
+        from starlette.concurrency import run_in_threadpool  # type: ignore
 
         async def api_func(request: Request) -> Response:
             # handle_request may raise 4xx or 5xx exception.
             output = None
-            with self.bento_service.context.in_request(request) as ctx:
-                try:
-                    input_data = await api.input.from_http_request(request)
+            try:
+                input_data = await api.input.from_http_request(request)
+                ctx = None
+                if asyncio.iscoroutinefunction(api.func):
                     if api.multi_input:
                         if api.needs_ctx:
+                            ctx = Context.from_http(request)
                             input_data[api.ctx_param] = ctx
-                        if is_async_callable(api.func):
-                            output = await api.func(**input_data)
-                        else:
-                            output = await run_in_threadpool(api.func, **input_data)
+                        output = await api.func(**input_data)
                     else:
-                        args = (input_data,)
                         if api.needs_ctx:
-                            args = (input_data, ctx)
-                        if is_async_callable(api.func):
-                            output = await api.func(*args)
+                            ctx = Context.from_http(request)
+                            output = await api.func(input_data, ctx)
                         else:
-                            output = await run_in_threadpool(api.func, *args)
-
-                    response = await api.output.to_http_response(
-                        output, ctx if api.needs_ctx else None
-                    )
-
-                    if trace_context.request_id is not None:
-                        response.headers["X-BentoML-Request-ID"] = str(
-                            trace_context.request_id
-                        )
-                    if (
-                        BentoMLContainer.http.response.trace_id.get()
-                        and trace_context.trace_id is not None
-                    ):
-                        response.headers["X-BentoML-Trace-ID"] = str(
-                            trace_context.trace_id
-                        )
-                except BentoMLException as e:
-                    log_exception(request, sys.exc_info())
-                    if output is not None:
-                        import inspect
-
-                        signature = inspect.signature(api.output.to_proto)
-                        param = next(iter(signature.parameters.values()))
-                        ann = ""
-                        if param is not inspect.Parameter.empty:
-                            ann = param.annotation
-
-                        # more descriptive errors if output is available
-                        logger.error(
-                            "Function '%s' has 'input=%s,output=%s' as IO descriptor, and returns 'result=%s', while expected return type is '%s'",
-                            api.name,
-                            api.input,
-                            api.output,
-                            type(output),
-                            ann,
-                        )
-
-                    status = e.error_code.value
-                    if 400 <= status < 500 and status not in (401, 403):
-                        response = JSONResponse(
-                            content="BentoService error handling API request: %s"
-                            % str(e),
-                            status_code=status,
-                        )
+                            output = await api.func(input_data)
+                else:
+                    if api.multi_input:
+                        if api.needs_ctx:
+                            ctx = Context.from_http(request)
+                            input_data[api.ctx_param] = ctx
+                        output: t.Any = await run_in_threadpool(api.func, **input_data)
                     else:
-                        response = JSONResponse("", status_code=status)
-                except asyncio.CancelledError:
-                    # Special handling for Python 3.7 compatibility
-                    raise
-                except Exception:  # pylint: disable=broad-except
-                    # For all unexpected error, return 500 by default. For example,
-                    # if users' model raises an error of division by zero.
-                    log_exception(request, sys.exc_info())
+                        if api.needs_ctx:
+                            ctx = Context.from_http(request)
+                            output = await run_in_threadpool(api.func, input_data, ctx)
+                        else:
+                            output = await run_in_threadpool(api.func, input_data)
 
-                    response = JSONResponse(
-                        "An error has occurred in BentoML user code when handling this request, find the error details in server logs",
-                        status_code=500,
+                response = await api.output.to_http_response(output, ctx)
+
+                if trace_context.request_id is not None:
+                    response.headers["X-BentoML-Request-ID"] = str(
+                        trace_context.request_id
                     )
-                return response
+            except BentoMLException as e:
+                log_exception(request, sys.exc_info())
+                if output is not None:
+                    import inspect
+
+                    signature = inspect.signature(api.output.to_proto)
+                    param = next(iter(signature.parameters.values()))
+                    ann = ""
+                    if param is not inspect.Parameter.empty:
+                        ann = param.annotation
+
+                    # more descriptive errors if output is available
+                    logger.error(
+                        "Function '%s' has 'input=%s,output=%s' as IO descriptor, and returns 'result=%s', while expected return type is '%s'",
+                        api.name,
+                        api.input,
+                        api.output,
+                        type(output),
+                        ann,
+                    )
+
+                status = e.error_code.value
+                if 400 <= status < 500 and status not in (401, 403):
+                    response = JSONResponse(
+                        content="BentoService error handling API request: %s" % str(e),
+                        status_code=status,
+                    )
+                else:
+                    response = JSONResponse("", status_code=status)
+            except Exception:  # pylint: disable=broad-except
+                # For all unexpected error, return 500 by default. For example,
+                # if users' model raises an error of division by zero.
+                log_exception(request, sys.exc_info())
+
+                response = JSONResponse(
+                    "An error has occurred in BentoML user code when handling this request, find the error details in server logs",
+                    status_code=500,
+                )
+            return response
 
         return api_func

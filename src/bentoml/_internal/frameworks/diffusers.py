@@ -48,30 +48,12 @@ logger = logging.getLogger(__name__)
 class DiffusersOptions(PartialKwargsModelOptions):
     """Options for the diffusers model."""
 
-    pipeline_class: str | type[diffusers.pipelines.DiffusionPipeline] | None = None
-    scheduler_class: str | type[diffusers.SchedulerMixin] | None = None
+    pipeline_class: type[diffusers.pipelines.DiffusionPipeline] | None = None
+    scheduler_class: type[diffusers.SchedulerMixin] | None = None
     torch_dtype: str | torch.dtype | None = None
-    device_map: str | dict[str, int | str | torch.device] | None = None
     custom_pipeline: str | None = None
     enable_xformers: bool | None = None
     enable_attention_slicing: int | str | None = None
-    enable_model_cpu_offload: bool | None = None
-    enable_sequential_cpu_offload: bool | None = None
-    low_cpu_mem_usage: bool | None = None
-    variant: str | None = None
-    load_pretrained_extra_kwargs: dict[str, t.Any] | None = None
-
-
-def _str2cls(
-    full_cls_str: str,
-) -> type[diffusers.pipelines.DiffusionPipeline | diffusers.SchedulerMixin]:
-    import importlib
-
-    module_name, _, class_name = full_cls_str.rpartition(".")
-
-    module = importlib.import_module(module_name)
-    cls = getattr(module, class_name)
-    return cls
 
 
 def get(tag_like: str | Tag) -> bentoml.Model:
@@ -113,10 +95,6 @@ def load_model(
     low_cpu_mem_usage: bool | None = None,
     enable_xformers: bool = False,
     enable_attention_slicing: int | str | None = None,
-    enable_model_cpu_offload: bool | None = None,
-    enable_sequential_cpu_offload: bool | None = None,
-    variant: str | None = None,
-    load_pretrained_extra_kwargs: dict[str, t.Any] | None = None,
 ) -> diffusers.DiffusionPipeline:
     """
     Load a Diffusion model and convert it to diffusers `Pipeline <https://huggingface.co/docs/diffusers/api/pipelines/overview>`_
@@ -148,8 +126,6 @@ def load_model(
         enable_xformers (:code:`bool`, `optional`):
             Use xformers optimization if it's available. For more info, refer to
             https://github.com/facebookresearch/xformers
-        variant (`str`, *optional*):
-            If specified load weights from `variant` filename, *e.g.* pytorch_model.<variant>.bin.
 
     Returns:
         The Diffusion model loaded as diffusers pipeline from the BentoML model store.
@@ -175,21 +151,25 @@ def load_model(
 
     diffusion_model_dir = bento_model.path_of(DIFFUSION_MODEL_FOLDER)
 
+    if (
+        device_map is None
+        and is_torch_version(">=", "1.9.0")
+        and is_accelerate_available()
+    ):
+        device_map = "auto"
+
     if low_cpu_mem_usage is None:
         if is_torch_version(">=", "1.9.0") and is_accelerate_available():
             low_cpu_mem_usage = True
         else:
             low_cpu_mem_usage = False
 
-    load_pretrained_extra_kwargs = load_pretrained_extra_kwargs or {}
     pipeline: diffusers.DiffusionPipeline = pipeline_class.from_pretrained(
         diffusion_model_dir,
         torch_dtype=torch_dtype,
         low_cpu_mem_usage=low_cpu_mem_usage,
         device_map=device_map,
         custom_pipeline=custom_pipeline,
-        variant=variant,
-        **load_pretrained_extra_kwargs,
     )
 
     if scheduler_class:
@@ -199,30 +179,10 @@ def load_model(
         pipeline.scheduler = scheduler
 
     if device_id is not None:
-        move_model_to_device = True
-
-        if str(device_id).lower().startswith("cuda"):
-            # when device_map is not None, we should not move the
-            # pipeline to gpu again see
-            # https://github.com/huggingface/diffusers/issues/2782
-            if device_map is not None:
-                move_model_to_device = False
-            if enable_sequential_cpu_offload:
-                move_model_to_device = False
-            if enable_model_cpu_offload:
-                move_model_to_device = False
-
-        if move_model_to_device:
-            pipeline = pipeline.to(device_id)
+        pipeline = pipeline.to(device_id)
 
     if enable_xformers:
         pipeline.enable_xformers_memory_efficient_attention()
-
-    if enable_sequential_cpu_offload:
-        pipeline.enable_sequential_cpu_offload()
-
-    if enable_model_cpu_offload:
-        pipeline.enable_model_cpu_offload()
 
     if enable_attention_slicing is not None:
         pipeline.enable_attention_slicing(enable_attention_slicing)
@@ -231,13 +191,11 @@ def load_model(
 
 
 def import_model(
-    name: Tag | str,
+    name: str,
     model_name_or_path: str | os.PathLike,
     *,
     proxies: dict[str, str] | None = None,
     revision: str = "main",
-    variant: str | None = None,
-    pipeline_class: diffusers.pipelines.DiffusionPipeline | None = None,
     signatures: dict[str, ModelSignatureDict | ModelSignature] | None = None,
     labels: dict[str, str] | None = None,
     custom_objects: dict[str, t.Any] | None = None,
@@ -317,39 +275,27 @@ def import_model(
             name,
         )
 
-    options_dict: dict[str, str] = {}
-    if pipeline_class:
-        cls_str = f"{pipeline_class.__module__}.{pipeline_class.__name__}"
-        options_dict["pipeline_class"] = cls_str
-    if variant:
-        options_dict["variant"] = variant
-
-    options = DiffusersOptions(**options_dict) if options_dict else None
-
     with bentoml.models.create(
         name,
         module=MODULE_NAME,
         api_version=API_VERSION,
         signatures=signatures,
         labels=labels,
-        options=options,
+        options=None,
         custom_objects=custom_objects,
         external_modules=external_modules,
         metadata=metadata,
         context=context,
     ) as bento_model:
+
         diffusion_model_dir = bento_model.path_of(DIFFUSION_MODEL_FOLDER)
         ignore = shutil.ignore_patterns(".git")
 
         if os.path.isdir(model_name_or_path):
             src_dir = model_name_or_path
 
-        elif pipeline_class:
-            src_dir = pipeline_class.download(
-                model_name_or_path, proxies=proxies, revision=revision, variant=variant
-            )
-
         else:
+
             try:
                 from huggingface_hub import snapshot_download
             except ImportError:  # pragma: no cover
@@ -373,7 +319,7 @@ def import_model(
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     pipeline: diffusers.DiffusionPipeline,
     *,
     signatures: dict[str, ModelSignatureDict | ModelSignature] | None = None,
@@ -447,6 +393,7 @@ def save_model(
         metadata=metadata,
         context=context,
     ) as bento_model:
+
         diffusion_model_dir = bento_model.path_of(DIFFUSION_MODEL_FOLDER)
         pipeline.save_pretrained(diffusion_model_dir)
 
@@ -458,32 +405,19 @@ def get_runnable(bento_model: bentoml.Model) -> t.Type[bentoml.Runnable]:
     Private API: use :obj:`~bentoml.Model.to_runnable` instead.
     """
 
-    bento_options = t.cast(DiffusersOptions, bento_model.info.options)
-    partial_kwargs: dict[str, t.Any] = bento_options.partial_kwargs  # type: ignore
-    pipeline_class: str | type[diffusers.DiffusionPipeline] = (
-        bento_options.pipeline_class or diffusers.StableDiffusionPipeline
+    partial_kwargs: t.Dict[str, t.Any] = bento_model.info.options.partial_kwargs  # type: ignore
+    pipeline_class: type[diffusers.DiffusionPipeline] = (
+        bento_model.info.options.pipeline_class or diffusers.StableDiffusionPipeline
     )
-    if isinstance(pipeline_class, str):
-        pipeline_class = _str2cls(pipeline_class)
-
     scheduler_class: type[
         diffusers.SchedulerMixin
-    ] | None = bento_options.scheduler_class
-
-    custom_pipeline: str | None = bento_options.custom_pipeline
-    _enable_xformers: bool | None = bento_options.enable_xformers
-    enable_attention_slicing: int | str | None = bento_options.enable_attention_slicing
-    enable_sequential_cpu_offload: bool | None = (
-        bento_options.enable_sequential_cpu_offload
+    ] | None = bento_model.info.options.scheduler_class
+    custom_pipeline: str | None = bento_model.info.options.custom_pipeline
+    _enable_xformers: str | None = bento_model.info.options.enable_xformers
+    enable_attention_slicing: int | str | None = (
+        bento_model.info.options.enable_attention_slicing
     )
-    enable_model_cpu_offload: bool | None = bento_options.enable_model_cpu_offload
-    low_cpu_mem_usage: bool | None = bento_options.low_cpu_mem_usage
-    variant: str | None = bento_options.variant
-    _torch_dtype: str | torch.dtype | None = bento_options.torch_dtype
-    device_map: str | dict[
-        str, int | str | torch.device
-    ] | None = bento_options.device_map
-    load_pretrained_extra_kwargs = bento_options.load_pretrained_extra_kwargs
+    _torch_dtype: str | torch.dtype | None = bento_model.info.options.torch_dtype
 
     class DiffusersRunnable(bentoml.Runnable):
         SUPPORTED_RESOURCES = ("nvidia.com/gpu", "cpu")
@@ -509,18 +443,12 @@ def get_runnable(bento_model: bentoml.Model) -> t.Type[bentoml.Runnable]:
             self.pipeline: diffusers.DiffusionPipeline = load_model(
                 bento_model,
                 device_id=device_id,
-                device_map=device_map,
                 pipeline_class=pipeline_class,
                 scheduler_class=scheduler_class,
                 torch_dtype=torch_dtype,
                 custom_pipeline=custom_pipeline,
                 enable_xformers=enable_xformers,
                 enable_attention_slicing=enable_attention_slicing,
-                enable_sequential_cpu_offload=enable_sequential_cpu_offload,
-                enable_model_cpu_offload=enable_model_cpu_offload,
-                low_cpu_mem_usage=low_cpu_mem_usage,
-                variant=variant,
-                load_pretrained_extra_kwargs=load_pretrained_extra_kwargs,
             )
 
     def make_run_method(
@@ -531,16 +459,14 @@ def get_runnable(bento_model: bentoml.Model) -> t.Type[bentoml.Runnable]:
             *args: t.Any,
             **kwargs: t.Any,
         ) -> t.Any:
+
             if method_partial_kwargs is not None:
                 kwargs = dict(method_partial_kwargs, **kwargs)
 
             raw_method = getattr(runnable_self.pipeline, method_name)
+            if "return_dict" not in kwargs:
+                kwargs["return_dict"] = False
             res = raw_method(*args, **kwargs)
-
-            # handle BaseOutput cannot be serialized yet
-            if isinstance(res, diffusers.utils.BaseOutput):
-                res = res.to_tuple()
-
             return res
 
         return _run_method

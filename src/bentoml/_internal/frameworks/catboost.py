@@ -112,7 +112,7 @@ class CatBoostOptions(ModelOptions):
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     model: cb.CatBoost,
     *,
     signatures: dict[str, ModelSignatureDict] | None = None,

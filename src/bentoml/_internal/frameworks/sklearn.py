@@ -86,7 +86,7 @@ def load_model(bento_model: str | Tag | Model) -> SklearnModel:
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     model: SklearnModel,
     *,
     signatures: ModelSignaturesType | None = None,
@@ -183,14 +183,11 @@ def get_runnable(bento_model: Model):
 
     def add_runnable_method(method_name: str, options: ModelSignature):
         def _run(
-            self: SklearnRunnable,
-            input_data: ext.NpNDArray | ext.PdDataFrame,
-            *args: t.Any,
-            **kwargs: t.Any,
+            self: SklearnRunnable, input_data: ext.NpNDArray | ext.PdDataFrame
         ) -> ext.NpNDArray:
             # TODO: set inner_max_num_threads and n_jobs param here base on strategy env vars
             with parallel_backend(backend="loky"):
-                return getattr(self.model, method_name)(input_data, *args, **kwargs)
+                return getattr(self.model, method_name)(input_data)
 
         SklearnRunnable.add_method(
             _run,

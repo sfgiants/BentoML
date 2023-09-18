@@ -79,7 +79,7 @@ def load_model(
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     model: torch.ScriptModule,
     *,
     signatures: ModelSignaturesType | None = None,

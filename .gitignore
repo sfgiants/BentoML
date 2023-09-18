@@ -159,6 +159,3 @@ vendor
 *.plan
 *.bin
 yolov5*
-
-# MLflow runs
-mlruns/

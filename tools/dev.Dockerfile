@@ -185,3 +185,4 @@ EOT
 FROM scratch as generate-tests-proto-4-output
 
 COPY --from=generate-tests-proto-4 /result/* /
+

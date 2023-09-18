@@ -13,3 +13,4 @@ let request: Bentoml_Grpc_v1_Request = .with {
   $0.apiName = apiName
   $0.ndarray = ndarray
 }
+

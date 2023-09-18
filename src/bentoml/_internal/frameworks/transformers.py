@@ -25,8 +25,6 @@ from ..models.model import ModelOptions
 from ..models.model import ModelSignature
 
 if t.TYPE_CHECKING:
-    import torch
-    import tensorflow as tf
     import cloudpickle
     from transformers.models.auto.auto_factory import (
         _BaseAutoModelClass as BaseAutoModelClass,
@@ -51,16 +49,12 @@ if t.TYPE_CHECKING:
     TupleAutoModel = tuple[BaseAutoModelClass, ...]
 
     class PreTrainedProtocol(t.Protocol):
-        @property
-        def framework(self) -> str:
-            ...
-
         def save_pretrained(self, save_directory: str, **kwargs: t.Any) -> None:
             ...
 
         @classmethod
         def from_pretrained(
-            cls, pretrained_model_name_or_path: str, *args: t.Any, **kwargs: t.Any
+            cls, pretrained_model_name_or_path: str, **kwargs: t.Any
         ) -> PreTrainedProtocol:
             ...
 
@@ -70,8 +64,6 @@ else:
     TupleStr = TupleAutoModel = tuple
     DefaultMapping = SimpleDefaultMapping = ModelDefaultMapping = dict
 
-    torch = LazyLoader("torch", globals(), "torch")
-    tf = LazyLoader("tf", globals(), "tensorflow")
     cloudpickle = LazyLoader(
         "cloudpickle",
         globals(),
@@ -356,13 +348,11 @@ def load_model(
 
 
 @t.overload
-def load_model(
-    bento_model: str | Tag | Model, *args: t.Any, **kwargs: t.Any
-) -> TransformersPreTrained:
+def load_model(bento_model: str | Tag | Model, **kwargs: t.Any) -> PreTrainedProtocol:
     ...
 
 
-def load_model(bento_model: str | Tag | Model, *args: t.Any, **kwargs: t.Any) -> t.Any:
+def load_model(bento_model: str | Tag | Model, **kwargs: t.Any) -> t.Any:
     """
     Load the Transformers model from BentoML local modelstore with given name.
 
@@ -370,8 +360,6 @@ def load_model(bento_model: str | Tag | Model, *args: t.Any, **kwargs: t.Any) ->
         bento_model: Either the tag of the model to get from the store,
                      or a BentoML :class:`~bentoml.Model` instance to load the
                      model from.
-        args: Additional model args to be passed into the model if the object is a Transformers PreTrained protocol.
-              This shouldn't be used when the bento_model is a pipeline.
         kwargs: Additional keyword arguments to pass into the pipeline.
 
     Returns:
@@ -467,11 +455,8 @@ def load_model(bento_model: str | Tag | Model, *args: t.Any, **kwargs: t.Any) ->
         if "_pretrained_class" in bento_model.info.metadata:
             with open(bento_model.path_of(PRETRAINED_PROTOCOL_NAME), "rb") as f:
                 protocol: PreTrainedProtocol = cloudpickle.load(f)
-            return protocol.from_pretrained(bento_model.path, *args, **kwargs)
+            return protocol.from_pretrained(bento_model.path, **kwargs)
         else:
-            assert (
-                len(args) == 0
-            ), "Positional args are not supported for pipeline. Make sure to only use kwargs instead."
             with open(bento_model.path_of(PIPELINE_PICKLE_NAME), "rb") as f:
                 pipeline_class: type[transformers.Pipeline] = cloudpickle.load(f)
 
@@ -526,18 +511,66 @@ def load_model(bento_model: str | Tag | Model, *args: t.Any, **kwargs: t.Any) ->
                 raise
 
 
+@t.overload
+def save_model(
+    name: str,
+    pretrained_or_pipeline: PreTrainedProtocol,
+    pipeline: transformers.Pipeline | None = ...,
+    task_name: t.LiteralString | None = ...,
+    task_definition: TaskDefinition | None = ...,
+    *,
+    signatures: ModelSignaturesType | None = ...,
+    labels: dict[str, str] | None = ...,
+    custom_objects: dict[str, t.Any] | None = ...,
+    external_modules: t.List[ModuleType] | None = ...,
+    metadata: dict[str, t.Any] | None = ...,
+    **save_kwargs: t.Any,
+) -> bentoml.Model:
+    ...
+
+
+@t.overload
+def save_model(
+    name: str,
+    pretrained_or_pipeline: TransformersPreTrained,
+    pipeline: transformers.Pipeline | None = ...,
+    task_name: t.LiteralString | None = ...,
+    task_definition: TaskDefinition | None = ...,
+    *,
+    signatures: ModelSignaturesType | None = ...,
+    labels: dict[str, str] | None = ...,
+    custom_objects: dict[str, t.Any] | None = ...,
+    external_modules: t.List[ModuleType] | None = ...,
+    metadata: dict[str, t.Any] | None = ...,
+    **save_kwargs: t.Any,
+) -> bentoml.Model:
+    ...
+
+
+@t.overload
+def save_model(
+    name: str,
+    pretrained_or_pipeline: transformers.Pipeline,
+    pipeline: transformers.Pipeline | None = ...,
+    task_name: t.LiteralString | None = ...,
+    task_definition: TaskDefinition | None = ...,
+    *,
+    signatures: ModelSignaturesType | None = ...,
+    labels: dict[str, str] | None = ...,
+    custom_objects: dict[str, t.Any] | None = ...,
+    external_modules: t.List[ModuleType] | None = ...,
+    metadata: dict[str, t.Any] | None = ...,
+    **save_kwargs: t.Any,
+) -> bentoml.Model:
+    ...
+
+
 def make_default_signatures(pretrained: t.Any) -> ModelSignaturesType:
     default_config = ModelSignature(batchable=False)
     infer_fn = ("__call__",)
 
     # NOTE: for all processor type recommend to use custom signatures since it is
     # a per case basis.
-    if pkg_version_info("transformers")[:2] < (4, 17):
-        logger.warning(
-            "Given transformers version is less than 4.17.0, signatures inference will be disabled. Make sure to specify the signatures manually."
-        )
-        return {}
-
     if transformers.processing_utils.ProcessorMixin in pretrained.__class__.__bases__:
         logger.info(
             "Given '%s' extends the 'transformers.ProcessorMixin'. Make sure to specify the signatures manually if it has additional functions.",
@@ -606,11 +639,8 @@ def make_default_signatures(pretrained: t.Any) -> ModelSignaturesType:
 
 
 def save_model(
-    name: Tag | str,
-    pretrained_or_pipeline: TransformersPreTrained
-    | transformers.Pipeline
-    | PreTrainedProtocol
-    | None = None,
+    name: str,
+    pretrained_or_pipeline: t.Any = None,
     pipeline: transformers.Pipeline | None = None,
     task_name: str | None = None,
     task_definition: dict[str, t.Any] | TaskDefinition | None = None,
@@ -685,7 +715,7 @@ def save_model(
     # backward compatibility
     if pipeline is not None:
         warnings.warn(
-            f"The 'pipeline={pipeline}' argument is deprecated and will be removed in the future. Please use 'pretrained_or_pipeline' instead.",
+            f"The '{pipeline=}' argument is deprecated and will be removed in the future. Please use 'pretrained_or_pipeline' instead.",
             DeprecationWarning,
         )
         pretrained_or_pipeline = pipeline
@@ -694,15 +724,9 @@ def save_model(
         pretrained_or_pipeline is not None
     ), "Please provide a pipeline or a pretrained object as a second argument."
 
-    # The below API are introduced since 4.18
-    if pkg_version_info("transformers")[:2] >= (4, 18):
-        from transformers.utils import is_tf_available
-        from transformers.utils import is_flax_available
-        from transformers.utils import is_torch_available
-    else:
-        from .utils.transformers import is_tf_available
-        from .utils.transformers import is_flax_available
-        from .utils.transformers import is_torch_available
+    from transformers.utils import is_tf_available
+    from transformers.utils import is_flax_available
+    from transformers.utils import is_torch_available
 
     framework_versions = {"transformers": get_pkg_version("transformers")}
     if is_torch_available():
@@ -727,14 +751,11 @@ def save_model(
 
     if signatures is None:
         signatures = make_default_signatures(pretrained_or_pipeline)
-        # NOTE: ``make_default_signatures`` can return an empty dict, hence we will only
-        # log when signatures are available.
-        if signatures:
-            logger.info(
-                'Using the default model signature for Transformers (%s) for model "%s".',
-                signatures,
-                name,
-            )
+        logger.info(
+            'Using the default model signature for Transformers (%s) for model "%s".',
+            signatures,
+            name,
+        )
 
     if LazyType("transformers.Pipeline").isinstance(pretrained_or_pipeline):
         from transformers.pipelines import check_task
@@ -813,26 +834,11 @@ def save_model(
         pretrained = t.cast("PreTrainedProtocol", pretrained_or_pipeline)
         assert all(
             hasattr(pretrained, defn) for defn in ("save_pretrained", "from_pretrained")
-        ), f"'pretrained={pretrained}' is not a valid Transformers object. It must have 'save_pretrained' and 'from_pretrained' methods."
+        ), f"'{pretrained=}' is not a valid Transformers object. It must have 'save_pretrained' and 'from_pretrained' methods."
         if metadata is None:
             metadata = {}
 
-        metadata.update(
-            {
-                "_pretrained_class": pretrained.__class__.__name__,
-            }
-        )
-        if hasattr(pretrained, "framework") and isinstance(
-            pretrained,
-            (
-                transformers.PreTrainedModel,
-                transformers.TFPreTrainedModel,
-                transformers.FlaxPreTrainedModel,
-            ),
-        ):
-            # NOTE: Only PreTrainedModel and variants has this, not tokenizer.
-            metadata["_framework"] = pretrained.framework
-
+        metadata["_pretrained_class"] = pretrained.__class__.__name__
         with bentoml.models.create(
             name,
             module=MODULE_NAME,
@@ -865,56 +871,19 @@ def get_runnable(bento_model: bentoml.Model) -> type[bentoml.Runnable]:
             super().__init__()
 
             available_gpus = os.getenv("CUDA_VISIBLE_DEVICES", "")
-            # assign CPU resources
-            kwargs = {}
-
             if available_gpus not in ("", "-1"):
                 # assign GPU resources
                 if not available_gpus.isdigit():
                     raise ValueError(
                         f"Expecting numeric value for CUDA_VISIBLE_DEVICES, got {available_gpus}."
                     )
-                if "_pretrained_class" not in bento_model.info.metadata:
-                    # NOTE: then this is a pipeline. We then pass the device to it.
-                    kwargs["device"] = int(available_gpus)
-            if "_pretrained_class" not in bento_model.info.metadata:
-                self.model = load_model(bento_model, **kwargs)
-            else:
-                if "_framework" in bento_model.info.metadata:
-                    if "torch" == bento_model.info.metadata["_framework"]:
-                        self.model = t.cast(
-                            transformers.PreTrainedModel,
-                            load_model(bento_model, **kwargs),
-                        ).to(
-                            torch.device(
-                                "cuda" if available_gpus not in ("", "-1") else "cpu"
-                            )
-                        )
-                        torch.set_default_tensor_type("torch.cuda.FloatTensor")
-                    elif "tf" == bento_model.info.metadata["_framework"]:
-                        with tf.device(
-                            "/device:CPU:0"
-                            if available_gpus in ("", "-1")
-                            else f"/device:GPU:{available_gpus}"
-                        ):
-                            self.model = t.cast(
-                                transformers.TFPreTrainedModel,
-                                load_model(bento_model, **kwargs),
-                            )
-                    else:
-                        # NOTE: we need to hide all GPU from TensorFlow, otherwise it will try to allocate
-                        # memory on the GPU and make it unavailable for JAX.
-                        tf.config.experimental.set_visible_devices([], "GPU")
-                        self.model = t.cast(
-                            transformers.FlaxPreTrainedModel,
-                            load_model(bento_model, **kwargs),
-                        )
                 else:
-                    logger.warning(
-                        "Current %s is saved with an older version of BentoML. Setting GPUs on this won't work as expected. Make sure to save it with a newer version of BentoML.",
-                        bento_model,
-                    )
-                    self.model = load_model(bento_model, **kwargs)
+                    kwargs = {"device": int(available_gpus)}
+            else:
+                # assign CPU resources
+                kwargs = {}
+
+            self.model = load_model(bento_model, **kwargs)
 
             # NOTE: backward compatibility with previous BentoML versions.
             self.pipeline = self.model

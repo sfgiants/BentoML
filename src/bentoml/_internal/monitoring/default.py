@@ -5,15 +5,16 @@ import logging
 import datetime
 import collections
 import logging.config
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 import yaml
 
-from .base import MonitorBase
+from .api import MonitorBase
 from ..context import trace_context
 from ..context import component_context
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from ..types import JSONSerializable
 
 
@@ -34,13 +35,13 @@ handlers:
     class: logging.handlers.TimedRotatingFileHandler
     level: INFO
     formatter: bentoml_json
-    filename: '{data_filename}'
+    filename: "{data_filename}"
     when: "D"
   bentoml_monitor_schema:
     class: logging.handlers.RotatingFileHandler
     level: INFO
     formatter: bentoml_json
-    filename: '{schema_filename}'
+    filename: "{schema_filename}"
 formatters:
   bentoml_json:
     class: pythonjsonlogger.jsonlogger.JsonFormatter
@@ -79,12 +80,8 @@ class DefaultMonitor(MonitorBase["JSONSerializable"]):
                 logging_config_yaml = f.read()
 
         worker_id = component_context.component_index or 0
-        schema_path = Path(self.log_path).joinpath(
-            self.name, "schema", f"schema.{worker_id}.log"
-        )
-        data_path = Path(self.log_path).joinpath(
-            self.name, "data", f"data.{worker_id}.log"
-        )
+        schema_path = Path(f"{self.log_path}/{self.name}/schema/schema.{worker_id}.log")
+        data_path = Path(f"{self.log_path}/{self.name}/data/data.{worker_id}.log")
 
         schema_path.parent.mkdir(parents=True, exist_ok=True)
         data_path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,13 +93,7 @@ class DefaultMonitor(MonitorBase["JSONSerializable"]):
             monitor_name=self.name,
         )
 
-        try:
-            logging_config = yaml.safe_load(logging_config_yaml)
-        except yaml.YAMLError as e:
-            raise ValueError(
-                f"Error loading logging config from {self.log_config_file}: {e}"
-            ) from e
-
+        logging_config = yaml.safe_load(logging_config_yaml)
         logging.config.dictConfig(logging_config)
         self.data_logger = logging.getLogger("bentoml_monitor_data")
         self.schema_logger = logging.getLogger("bentoml_monitor_schema")
@@ -127,7 +118,7 @@ class DefaultMonitor(MonitorBase["JSONSerializable"]):
 
     def export_data(
         self,
-        datas: dict[str, collections.deque[JSONSerializable]],
+        datas: t.Dict[str, collections.deque[JSONSerializable]],
     ) -> None:
         """
         Export data. This method should be called after all data is logged.

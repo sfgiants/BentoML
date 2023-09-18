@@ -24,11 +24,7 @@ def parse_delete_targets_argument_callback(
 ) -> t.Any:
     if value is None:
         return value
-    value = " ".join(value)
-    if "," in value:
-        delete_targets = value.split(",")
-    else:
-        delete_targets = value.split()
+    delete_targets = value.split(",")
     delete_targets = list(map(str.strip, delete_targets))
     for delete_target in delete_targets:
         if not (
@@ -140,7 +136,7 @@ def add_model_management_commands(cli: Group) -> None:
     @model_cli.command()
     @click.argument(
         "delete_targets",
-        nargs=-1,
+        type=click.STRING,
         callback=parse_delete_targets_argument_callback,
         required=True,
     )
@@ -158,8 +154,7 @@ def add_model_management_commands(cli: Group) -> None:
         Examples:
             * Delete single model by "name:version", e.g: `bentoml models delete iris_clf:v1`
             * Bulk delete all models with a specific name, e.g.: `bentoml models delete iris_clf`
-            * Bulk delete multiple models by name and version, separated by ",", e.g.: `bentoml models delete iris_clf:v1,iris_clf:v2`
-            * Bulk delete multiple models by name and version, separated by " ", e.g.: `bentoml models delete iris_clf:v1 iris_clf:v2`
+            * Bulk delete multiple models by name and version, separated by ",", e.g.: `benotml models delete iris_clf:v1,iris_clf:v2`
             * Bulk delete without confirmation, e.g.: `bentoml models delete IrisClassifier --yes`
         """  # noqa
 

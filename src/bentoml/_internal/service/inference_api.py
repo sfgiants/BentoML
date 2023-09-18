@@ -8,7 +8,7 @@ from typing import Optional
 import yaml
 
 from ..types import is_compatible_type
-from ..context import ServiceContext as Context
+from ..context import InferenceApiContext as Context
 from ...exceptions import InvalidArgument
 from ..io_descriptors import IODescriptor
 
@@ -39,8 +39,7 @@ class InferenceAPI:
             # Use user_defined_callback function docstring `__doc__` if doc not specified
             doc = user_defined_callback.__doc__ if doc is None else doc
         else:
-            name = "" if name is None else name
-            doc = "" if doc is None else doc
+            name, doc = "", ""
 
         # Use API name as route if route not specified
         route = name if route is None else route

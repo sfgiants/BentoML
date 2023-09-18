@@ -1,6 +1,6 @@
 # Developer Guide
 
-Before getting started, check out the `#bentoml-contributors` channel in the [BentoML community slack](https://l.bentoml.com/join-slack).
+Before getting started, check out the `#bentoml-contributors` channel in the [BentoML community slack](https://l.linklyhq.com/l/ktOh).
 
 If you are interested in contributing to existing issues and feature requets, check out the [good-first-issue](https://github.com/bentoml/BentoML/issues?q=is%3Aopen+is%3Aissue+label%3Agood-first-issue) and [help-wanted](https://github.com/bentoml/BentoML/issues?q=is%3Aopen+is%3Aissue+label%3Ahelp-wanted) issues list.
 
@@ -33,7 +33,6 @@ If you are interested in proposing a new feature, make sure to create a new feat
 
    ```bash
    git switch main # ensure you're on the main branch
-   git fetch upstream --tags
    git branch --set-upstream-to=upstream/main
    ```
 
@@ -209,13 +208,13 @@ bentoml get IrisClassifier --verbose
 
 ## Style check, auto-formatting, type-checking
 
-formatter: [black](https://github.com/psf/black), [buf](https://github.com/bufbuild/buf)
+formatter: [black](https://github.com/psf/black), [isort](https://github.com/PyCQA/isort), [buf](https://github.com/bufbuild/buf)
 
 linter: [ruff](https://github.com/charliermarsh/ruff), [buf](https://github.com/bufbuild/buf)
 
 type checker: [pyright](https://github.com/microsoft/pyright)
 
-We are using [pre-commit](https://pre-commit.com/) to manage our hooks, and [buf](https://github.com/bufbuild/buf) for formatting and linting
+We are using [buf](https://github.com/bufbuild/buf) for formatting and linting
 of our proto files. Configuration can be found [here](./bentoml/grpc/buf.yaml).
 Currently, we are running `buf` with docker, hence we kindly ask our developers
 to have docker available. Docker installation can be found [here](https://docs.docker.com/get-docker/).
@@ -223,7 +222,9 @@ to have docker available. Docker installation can be found [here](https://docs.d
 Run linter/format script:
 
 ```bash
-pre-commit run --all-files
+make format
+
+make lint
 ```
 
 Run type checker:

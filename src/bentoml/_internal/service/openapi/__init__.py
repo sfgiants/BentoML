@@ -28,6 +28,7 @@ from .specification import Components
 from .specification import OpenAPISpecification
 
 if TYPE_CHECKING:
+
     from .. import Service
     from ..inference_api import InferenceAPI
 

@@ -49,7 +49,7 @@ with a ``bentofile.yaml`` build file. Here's an example from the
     Building BentoML service "iris_classifier:dpijemevl6nlhlg6" from build context "/home/user/gallery/quickstart"
     Packing model "iris_clf:zy3dfgxzqkjrlgxi"
     Locking PyPI package versions..
-
+ 
     ██████╗░███████╗███╗░░██╗████████╗░█████╗░███╗░░░███╗██╗░░░░░
     ██╔══██╗██╔════╝████╗░██║╚══██╔══╝██╔══██╗████╗░████║██║░░░░░
     ██████╦╝█████╗░░██╔██╗██║░░░██║░░░██║░░██║██╔████╔██║██║░░░░░
@@ -364,7 +364,7 @@ Service
 ^^^^^^^
 
 ``service`` is a **required** field which specifies where the
-``bentoml.Service`` object is defined.
+``bentoml.Service`` object is defined. 
 
 In the :doc:`tutorial </tutorial>`, we defined ``service: "service:svc"``, which can be
 interpreted as:
@@ -538,7 +538,7 @@ desired version, install from a custom PyPI source, or install from a GitHub rep
 
 .. note::
     There's no need to specify :code:`bentoml` as a dependency here since BentoML will
-    add the current version of BentoML to the Bento's dependency list by default. User
+    addd the current version of BentoML to the Bento's dependency list by default. User
     can override this by specifying a different BentoML version.
 
 
@@ -813,8 +813,8 @@ Here's a basic Docker options configuration:
           - liblapack-dev
           - gfortran
         env:
-          FOO: value1
-          BAR: value2
+          - FOO=value1
+          - BAR=value2
 
 .. note::
 
@@ -1013,8 +1013,6 @@ enable additional features for the generated Bento container image.
 | ``--enable-features=tracing-otlp``    | enable :ref:`OTLP Exporter <guides/tracing:Tracing>`   for distributed tracing                                          |
 +---------------------------------------+-------------------------------------------------------------------------------------------------------------------------+
 | ``--enable-features=tracing-zipkin``  | enable :ref:`Zipkin Exporter <guides/tracing:Tracing>`  for distributed tracing                                         |
-+---------------------------------------+-------------------------------------------------------------------------------------------------------------------------+
-| ``--enable-features=monitor-otlp``    | enable :ref:`Monitoring feature <guides/monitoring:Inference Data Collection & Model Monitoring>`                       |
 +---------------------------------------+-------------------------------------------------------------------------------------------------------------------------+
 
 Advanced Options

@@ -1,29 +1,25 @@
 from __future__ import annotations
 
-import importlib
-import inspect
-import logging
-import os
-import sys
 import typing as t
-from functools import partial
+import logging
+import importlib
 from typing import TYPE_CHECKING
+from functools import partial
 
 import attr
 
 from bentoml.exceptions import BentoMLException
 
-from ...exceptions import NotFound
-from ...grpc.utils import LATEST_PROTOCOL_VERSION
-from ...grpc.utils import import_grpc
-from ..bento.bento import get_default_svc_readme
-from ..context import ServiceContext as Context
-from ..io_descriptors import IODescriptor
-from ..models import Model
-from ..runner.runner import AbstractRunner
-from ..runner.runner import Runner
 from ..tag import Tag
+from ..models import Model
+from ...exceptions import NotFound
+from ...grpc.utils import import_grpc
+from ...grpc.utils import LATEST_PROTOCOL_VERSION
+from ..bento.bento import get_default_svc_readme
 from .inference_api import InferenceAPI
+from ..runner.runner import Runner
+from ..runner.runner import AbstractRunner
+from ..io_descriptors import IODescriptor
 
 if TYPE_CHECKING:
     import grpc
@@ -31,15 +27,10 @@ if TYPE_CHECKING:
     from bentoml.grpc.types import AddServicerFn
     from bentoml.grpc.types import ServicerClass
 
-    from ...grpc.v1 import service_pb2_grpc as services
     from .. import external_typing as ext
     from ..bento import Bento
-    from ..types import LifecycleHook
+    from ...grpc.v1 import service_pb2_grpc as services
     from .openapi.specification import OpenAPISpecification
-
-    ContextFunc = t.Callable[[Context], None | t.Coroutine[t.Any, t.Any, None]]
-    HookF = t.TypeVar("HookF", bound=LifecycleHook)
-    HookF_ctx = t.TypeVar("HookF_ctx", bound=ContextFunc)
 else:
     grpc, _ = import_grpc()
 
@@ -128,15 +119,6 @@ class Service:
     # Working dir and Import path of the service, set when the service was imported
     _working_dir: str | None = attr.field(init=False, default=None)
     _import_str: str | None = attr.field(init=False, default=None)
-    _caller_module: str | None = attr.field(init=False, default=None)
-
-    # service context
-    context: Context = attr.field(init=False, factory=Context)
-
-    # hooks
-    startup_hooks: list[LifecycleHook] = attr.field(init=False, factory=list)
-    shutdown_hooks: list[LifecycleHook] = attr.field(init=False, factory=list)
-    deployment_hooks: list[LifecycleHook] = attr.field(init=False, factory=list)
 
     def __reduce__(self):
         """
@@ -145,9 +127,9 @@ class Service:
         import fs
 
         from bentoml._internal.bento.bento import Bento
-        from bentoml._internal.configuration.containers import BentoMLContainer
         from bentoml._internal.service.loader import load
         from bentoml._internal.service.loader import load_bento_dir
+        from bentoml._internal.configuration.containers import BentoMLContainer
 
         serialization_strategy = BentoMLContainer.serialization_strategy.get()
 
@@ -199,7 +181,7 @@ class Service:
         else:
             from bentoml._internal.service.loader import import_service
 
-            return (import_service, self.get_service_import_origin())
+            return (import_service, (self._import_str, self._working_dir))
 
     def __init__(
         self,
@@ -244,54 +226,6 @@ class Service:
             models=[] if models is None else models,
         )
 
-        # Set import origin info - import_str can not be determined at this stage yet as
-        # the variable name is only available in module vars after __init__ is returned
-        # get_service_import_origin below will use the _caller_module for retriving the
-        # correct import_str for this service
-        caller_module = inspect.currentframe().f_back.f_globals["__name__"]
-        object.__setattr__(self, "_caller_module", caller_module)
-        object.__setattr__(self, "_working_dir", os.getcwd())
-
-    def get_service_import_origin(self) -> tuple[str, str]:
-        """
-        Returns the module name and working directory of the service
-        """
-        if not self._import_str:
-            import_module = self._caller_module
-            if import_module == "__main__":
-                if hasattr(sys.modules["__main__"], "__file__"):
-                    import_module = sys.modules["__main__"].__file__
-                else:
-                    raise BentoMLException(
-                        "Failed to get service import origin, bentoml.Service object defined interactively in console or notebook is not supported"
-                    )
-
-            if self._caller_module not in sys.modules:
-                raise BentoMLException(
-                    "Failed to get service import origin, bentoml.Service object must be defined in a module"
-                )
-
-            for name, value in vars(sys.modules[self._caller_module]).items():
-                if value is self:
-                    object.__setattr__(self, "_import_str", f"{import_module}:{name}")
-                    break
-
-            if not self._import_str:
-                raise BentoMLException(
-                    "Failed to get service import origin, bentoml.Service object must be assigned to a variable at module level"
-                )
-
-        assert self._working_dir is not None
-
-        return self._import_str, self._working_dir
-
-    def is_service_importable(self) -> bool:
-        if self._caller_module == "__main__":
-            if not hasattr(sys.modules["__main__"], "__file__"):
-                return False
-
-        return True
-
     def api(
         self,
         input: IODescriptor[t.Any],  # pylint: disable=redefined-builtin
@@ -313,15 +247,13 @@ class Service:
     def __str__(self):
         if self.bento:
             return f'bentoml.Service(tag="{self.tag}", ' f'path="{self.bento.path}")'
-
-        try:
-            import_str, working_dir = self.get_service_import_origin()
+        elif self._import_str and self._working_dir:
             return (
                 f'bentoml.Service(name="{self.name}", '
-                f'import_str="{import_str}", '
-                f'working_dir="{working_dir}")'
+                f'import_str="{self._import_str}", '
+                f'working_dir="{self._working_dir}")'
             )
-        except BentoMLException:
+        else:
             return (
                 f'bentoml.Service(name="{self.name}", '
                 f'runners=[{",".join([r.name for r in self.runners])}])'
@@ -331,17 +263,16 @@ class Service:
         return self.__str__()
 
     def __eq__(self, other: Service):
-        if self is other:
-            return True
-
         if self.bento and other.bento:
             return self.bento.tag == other.bento.tag
 
-        try:
-            if self.get_service_import_origin() == other.get_service_import_origin():
-                return True
-        except BentoMLException:
-            return False
+        if (
+            self._working_dir == other._working_dir
+            and self._import_str == other._import_str
+        ):
+            return True
+
+        return False
 
     @property
     def doc(self) -> str:
@@ -355,18 +286,6 @@ class Service:
         from .openapi import generate_spec
 
         return generate_spec(self)
-
-    def on_startup(self, func: HookF_ctx) -> HookF_ctx:
-        self.startup_hooks.append(partial(func, self.context))
-        return func
-
-    def on_shutdown(self, func: HookF_ctx) -> HookF_ctx:
-        self.shutdown_hooks.append(partial(func, self.context))
-        return func
-
-    def on_deployment(self, func: HookF) -> HookF:
-        self.deployment_hooks.append(func)
-        return func
 
     def on_asgi_app_startup(self) -> None:
         pass
@@ -465,3 +384,8 @@ class Service:
 def on_load_bento(svc: Service, bento: Bento):
     object.__setattr__(svc, "bento", bento)
     object.__setattr__(svc, "tag", bento.info.tag)
+
+
+def on_import_svc(svc: Service, working_dir: str, import_str: str):
+    object.__setattr__(svc, "_working_dir", working_dir)
+    object.__setattr__(svc, "_import_str", import_str)

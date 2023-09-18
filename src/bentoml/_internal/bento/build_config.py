@@ -8,6 +8,7 @@ import logging
 import subprocess
 from sys import version_info
 from shlex import quote
+from typing import TYPE_CHECKING
 
 import fs
 import attr
@@ -33,7 +34,7 @@ from ..container.frontend.dockerfile import ALLOWED_CUDA_VERSION_ARGS
 from ..container.frontend.dockerfile import SUPPORTED_PYTHON_VERSIONS
 from ..container.frontend.dockerfile import CONTAINER_SUPPORTED_DISTROS
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from attr import Attribute
     from fs.base import FS
 
@@ -277,7 +278,7 @@ class DockerOptions:
         return bentoml_cattr.unstructure(self)
 
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     CondaPipType = dict[t.Literal["pip"], list[str]]
     DependencyType = list[str | CondaPipType]
 else:
@@ -311,7 +312,7 @@ def conda_dependencies_validator(
                 )
 
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     ListStr: t.TypeAlias = list[str]
     CondaYamlDict = dict[str, DependencyType | list[str]]
 else:
@@ -688,7 +689,7 @@ def _python_options_structure_hook(d: t.Any, _: t.Type[PythonOptions]) -> Python
 bentoml_cattr.register_structure_hook(PythonOptions, _python_options_structure_hook)
 
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     OptionsCls = DockerOptions | CondaOptions | PythonOptions
 
 
@@ -739,7 +740,7 @@ class BentoBuildConfig:
         converter=dict_options_converter(CondaOptions),
     )
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # NOTE: This is to ensure that BentoBuildConfig __init__
         # satisfies type checker. docker, python, and conda accepts
         # dict[str, t.Any] since our converter will handle the conversion.
@@ -834,12 +835,9 @@ class BentoBuildConfig:
                 raise InvalidArgument(str(e)) from e
 
     def to_yaml(self, stream: t.TextIO) -> None:
-        try:
-            yaml.dump(bentoml_cattr.unstructure(self), stream)
-        except yaml.YAMLError as e:
-            logger.error("Error while deserializing BentoBuildConfig to yaml:")
-            logger.error(e)
-            raise
+        # TODO: Save BentoBuildOptions to a yaml file
+        # This is reserved for building interactive build file creation CLI
+        raise NotImplementedError
 
 
 @attr.define(frozen=True)

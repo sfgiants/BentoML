@@ -103,7 +103,7 @@ python3 containerize_bento.py
 4. To run the container with Triton, use `docker run`:
 
 ```bash
-docker run --rm -it -p 3000:3000 triton-integration-pytorch serve-http
+docker run --rm -it -p 3000:3000 triton-integration-pytorch serve-http --production
 ```
 
 #### Develop locally:
@@ -118,7 +118,7 @@ docker run --rm -it -p 3000-4000:3000-4000 \
            nvcr.io/nvidia/tritonserver:22.12-py3 bash
 ```
 
-If you have NVIDIA GPU available, make sure to install
+If you have NVIDIA GPU available, make sure to install 
 [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) on your system.
 Afterward, passing in `--gpus all` to `docker`:
 
@@ -152,7 +152,7 @@ bash ./setup
 ```bash
 python3 serve_bento.py
 
-# bentoml serve-http | serve-grpc triton-integration-pytorch
+# bentoml serve-http | serve-grpc triton-integration-pytorch --production
 ```
 
 > NOTE: to serve previously custom tag bento, you can also pass in `--tag` to
@@ -184,8 +184,8 @@ export LD_PRELOAD=/lib/aarch64-linux-gnu/libgomp.so.1
 Then run the `bentoml serve` command again.
 
 
-<!--
+<!-- 
 docker run --rm -it -p 3000-3030:3000-3030 -v $(pwd)/model_repository:/models -v ${PWD}:/workspace -v ${BENTOML_GIT_ROOT}:/opt/bentoml -e BENTOML_HOME=/opt/bentoml -v $BENTOML_HOME:/opt/bentoml nvcr.io/nvidia/tritonserver:22.12-py3 bash
 
-cd /opt/bentoml && pip install -r requirements/dev-requirements.txt && cd /workspace && pip install -r requirements/requirements.txt && python3 train.py && ./setup && bentoml serve-http
+cd /opt/bentoml && pip install -r requirements/dev-requirements.txt && cd /workspace && pip install -r requirements/requirements.txt && python3 train.py && ./setup && bentoml serve-http --production 
 -->

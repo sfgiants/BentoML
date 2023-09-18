@@ -36,10 +36,6 @@ into this part of the documentation.
         :link: /guides/configuration
         :link-type: doc
 
-    .. grid-item-card:: :doc:`/guides/scheduling`
-        :link: /guides/scheduling
-        :link-type: doc
-
     .. grid-item-card:: :doc:`/guides/graph`
         :link: /guides/graph
         :link-type: doc
@@ -88,7 +84,6 @@ into this part of the documentation.
     client
     server
     configuration
-    scheduling
     envmanager
     graph
     monitoring

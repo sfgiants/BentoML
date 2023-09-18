@@ -227,7 +227,7 @@ def pull(
 @inject
 @contextmanager
 def create(
-    name: Tag | str,
+    name: str,
     *,
     module: str = "",
     api_version: str | None = None,

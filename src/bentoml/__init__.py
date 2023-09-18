@@ -12,7 +12,7 @@ BentoML to:
 
 To learn more, visit BentoML documentation at: http://docs.bentoml.org
 To get involved with the development, find us on GitHub: https://github.com/bentoml
-And join us in the BentoML slack community: https://l.bentoml.com/join-slack
+And join us in the BentoML slack community: https://l.linklyhq.com/l/ktOh
 """
 
 from typing import TYPE_CHECKING
@@ -35,21 +35,17 @@ from .bentos import delete
 from .bentos import export_bento
 from .bentos import import_bento
 
-# server API
-from .server import GrpcServer
-from .server import HTTPServer
-
 # BentoML built-in types
 from ._internal.tag import Tag
 from ._internal.bento import Bento
 from ._internal.models import Model
 from ._internal.runner import Runner
 from ._internal.runner import Runnable
-from ._internal.context import ServiceContext as Context
+from ._internal.context import InferenceApiContext as Context
 from ._internal.service import Service
-from ._internal.monitoring import monitor
 from ._internal.utils.http import Cookie
 from ._internal.yatai_client import YataiClient
+from ._internal.monitoring.api import monitor
 from ._internal.service.loader import load
 
 # Framework specific modules, model management and IO APIs are lazily loaded upon import.
@@ -91,8 +87,6 @@ if TYPE_CHECKING:
     from . import client  # Client API
     from . import batch  # Batch API
     from . import exceptions  # BentoML exceptions
-    from . import server  # Server API
-    from . import monitoring  # Monitoring API
 
     # isort: on
 else:
@@ -144,9 +138,7 @@ else:
     metrics = _LazyLoader("bentoml.metrics", globals(), "bentoml.metrics")
     container = _LazyLoader("bentoml.container", globals(), "bentoml.container")
     client = _LazyLoader("bentoml.client", globals(), "bentoml.client")
-    server = _LazyLoader("bentoml.server", globals(), "bentoml.server")
     exceptions = _LazyLoader("bentoml.exceptions", globals(), "bentoml.exceptions")
-    monitoring = _LazyLoader("bentoml.monitoring", globals(), "bentoml.monitoring")
 
     del _LazyLoader
 
@@ -160,7 +152,6 @@ __all__ = [
     "metrics",
     "container",
     "client",
-    "server",
     "io",
     "Tag",
     "Model",
@@ -179,9 +170,6 @@ __all__ = [
     "serve",
     "Bento",
     "exceptions",
-    # server APIs
-    "HTTPServer",
-    "GrpcServer",
     # Framework specific modules
     "catboost",
     "detectron",

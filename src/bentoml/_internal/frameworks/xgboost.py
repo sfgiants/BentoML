@@ -142,7 +142,7 @@ def load_model(
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     model: xgb.Booster | xgb.XGBModel,
     *,
     signatures: dict[str, ModelSignatureDict] | None = None,
@@ -286,15 +286,13 @@ def get_runnable(bento_model: bentoml.Model) -> t.Type[bentoml.Runnable]:
             self: XGBoostRunnable,
             input_data: ext.NpNDArray
             | ext.PdDataFrame,  # TODO: add support for DMatrix
-            *args: t.Any,
-            **kwargs: t.Any,
         ) -> ext.NpNDArray:
             if isinstance(self.model, xgb.Booster):
                 inp = xgb.DMatrix(input_data)
             else:
                 inp = input_data
 
-            res = self.predict_fns[method_name](inp, *args, **kwargs)
+            res = self.predict_fns[method_name](inp)
             return np.asarray(res)  # type: ignore (incomplete np types)
 
         XGBoostRunnable.add_method(

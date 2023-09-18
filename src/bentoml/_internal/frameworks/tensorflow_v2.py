@@ -109,7 +109,7 @@ def load_model(
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     model: tf_ext.KerasModel | tf_ext.Module,
     *,
     tf_signatures: tf_ext.ConcreteFunction | None = None,
@@ -283,7 +283,7 @@ def get_runnable(
             # depends on the real output value each time
 
             def _postprocess(res: TFModelOutputType) -> TFRunnableOutputType:
-                if isinstance(res, (tuple, list)):
+                if isinstance(res, tuple):
                     return tuple(t.cast("ext.NpNDArray", r.numpy()) for r in res)
                 else:
                     return t.cast("ext.NpNDArray", res.numpy())

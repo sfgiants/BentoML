@@ -120,7 +120,6 @@ FEATURES = frozenset(
         "grpc",
         "grpc-reflection",
         "grpc-channelz",
-        "monitor-otlp",
         "triton",
         "aws",
         "all",

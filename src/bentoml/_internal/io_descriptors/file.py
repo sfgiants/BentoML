@@ -31,7 +31,7 @@ if t.TYPE_CHECKING:
     from bentoml.grpc.v1alpha1 import service_pb2 as pb_v1alpha1
 
     from .base import OpenAPIResponse
-    from ..context import ServiceContext as Context
+    from ..context import InferenceApiContext as Context
 
     FileKind: t.TypeAlias = t.Literal["binaryio", "textio"]
 else:
@@ -228,14 +228,7 @@ class File(
             )
             set_cookies(res, ctx.response.cookies)
         else:
-            res = Response(
-                body,
-                headers={
-                    "content-type": self._mime_type
-                    if self._mime_type
-                    else "application/octet-stream"
-                },
-            )
+            res = Response(body)
         return res
 
     async def to_proto(self, obj: FileType) -> pb.File:

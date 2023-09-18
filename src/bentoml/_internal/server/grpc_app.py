@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-import asyncio
-import inspect
-import logging
 import os
 import sys
 import typing as t
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
+import asyncio
+import inspect
+import logging
 from typing import TYPE_CHECKING
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 
-from simple_di import Provide
 from simple_di import inject
+from simple_di import Provide
 
-from ...grpc.utils import LATEST_PROTOCOL_VERSION
-from ...grpc.utils import import_generated_stubs
-from ...grpc.utils import import_grpc
-from ...grpc.utils import load_from_file
-from ..configuration.containers import BentoMLContainer
-from ..context import ServiceContext as Context
+from bentoml.grpc.utils import import_grpc
+from bentoml.grpc.utils import import_generated_stubs
+
 from ..utils import LazyLoader
 from ..utils import cached_property
+from ..utils import resolve_user_filepath
+from ...grpc.utils import LATEST_PROTOCOL_VERSION
+from ..configuration.containers import BentoMLContainer
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,10 @@ if TYPE_CHECKING:
     from grpc_health.v1 import health_pb2 as pb_health
     from grpc_health.v1 import health_pb2_grpc as services_health
 
-    from ...grpc.types import Interceptors
     from ..service import Service
-    from ..types import LifecycleHook
+    from ...grpc.types import Interceptors
+
+    OnStartup = list[t.Callable[[], t.Union[None, t.Coroutine[t.Any, t.Any, None]]]]
 
 else:
     grpc, aio = import_grpc()
@@ -56,6 +57,12 @@ else:
         "grpc_health.v1.health",
         exc_msg="'grpcio-health-checking' is required for using health checking endpoints. Install with 'pip install grpcio-health-checking'.",
     )
+
+
+def load_from_file(p: str) -> bytes:
+    rp = resolve_user_filepath(p, ctx=None)
+    with open(rp, "rb") as f:
+        return f.read()
 
 
 # NOTE: we are using the internal aio._server.Server (which is initialized with aio.server)
@@ -228,10 +235,6 @@ class Server(aio._server.Server):
             except Exception as e:  # pylint: disable=broad-except
                 raise RuntimeError(f"Server failed unexpectedly: {e}") from None
 
-    @cached_property
-    def context(self) -> Context:
-        return Context()
-
     def configure_port(self, addr: str):
         if self.ssl_certfile:
             client_auth = False
@@ -263,20 +266,14 @@ class Server(aio._server.Server):
         await self.wait_for_termination()
 
     @property
-    def on_startup(self) -> list[LifecycleHook]:
-        on_startup = [
-            *self.bento_service.startup_hooks,
-            self.bento_service.on_grpc_server_startup,
-        ]
+    def on_startup(self) -> OnStartup:
+        on_startup: OnStartup = [self.bento_service.on_grpc_server_startup]
         if BentoMLContainer.development_mode.get():
             for runner in self.bento_service.runners:
                 on_startup.append(partial(runner.init_local, quiet=True))
         else:
             for runner in self.bento_service.runners:
-                if runner.embedded:
-                    on_startup.append(partial(runner.init_local, quiet=True))
-                else:
-                    on_startup.append(runner.init_client)
+                on_startup.append(runner.init_client)
 
         on_startup.append(self.wait_for_runner_ready)
         return on_startup
@@ -335,18 +332,15 @@ class Server(aio._server.Server):
         await self.start()
 
     @property
-    def on_shutdown(self) -> list[LifecycleHook]:
-        on_shutdown = [
-            *self.bento_service.shutdown_hooks,
-            self.bento_service.on_grpc_server_shutdown,
-        ]
+    def on_shutdown(self) -> list[t.Callable[[], None]]:
+        on_shutdown = [self.bento_service.on_grpc_server_shutdown]
         for runner in self.bento_service.runners:
             on_shutdown.append(runner.destroy)
 
         return on_shutdown
 
     async def shutdown(self):
-        # Running on_shutdown callback.
+        # Running on_startup callback.
         for handler in self.on_shutdown:
             out = handler()
             if inspect.isawaitable(out):
