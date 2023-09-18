@@ -17,4 +17,3 @@ BentoML APIs and learn about all the options they provide.
   batch
   exceptions
   container
-  types

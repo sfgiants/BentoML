@@ -65,14 +65,6 @@ Framework APIs
         :link: /reference/frameworks/keras
         :link-type: doc
 
-    .. grid-item-card:: :doc:`/reference/frameworks/detectron`
-        :link: /reference/frameworks/detectron
-        :link-type: doc
-
-    .. grid-item-card:: :doc:`/reference/frameworks/easyocr`
-        :link: /reference/frameworks/easyocr
-        :link-type: doc
-
     .. grid-item-card:: :doc:`/reference/frameworks/ray`
         :link: /reference/frameworks/ray
         :link-type: doc
@@ -93,7 +85,5 @@ Framework APIs
     mlflow
     catboost
     fastai
-    easyocr
     keras
     ray
-    detectron

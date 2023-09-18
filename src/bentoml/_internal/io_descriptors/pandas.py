@@ -39,7 +39,7 @@ if t.TYPE_CHECKING:
 
     from .. import external_typing as ext
     from .base import OpenAPIResponse
-    from ..context import ServiceContext as Context
+    from ..context import InferenceApiContext as Context
 
 else:
     pb, _ = import_generated_stubs("v1")
@@ -442,8 +442,6 @@ class PandasDataFrame(
             return str(value.dtype)
         elif isinstance(value, bool):
             return str(value)
-        elif isinstance(value, str):
-            return value
         elif isinstance(value, dict):
             return {str(k): self._convert_dtype(v) for k, v in value.items()}
         elif value is None:
@@ -952,10 +950,6 @@ class PandasSeries(
         # TODO: support extension dtypes
         if LazyType["ext.NpNDArray"]("numpy", "ndarray").isinstance(value):
             return str(value.dtype)
-        elif isinstance(value, np.dtype):
-            return str(value)
-        elif isinstance(value, str):
-            return value
         elif isinstance(value, bool):
             return str(value)
         elif isinstance(value, dict):
@@ -1186,7 +1180,7 @@ class PandasSeries(
             ) from None
         try:
             fieldpb = npdtype_to_fieldpb_map()[obj.dtype]
-            return pb.Series(**{fieldpb: obj.tolist()})
+            return pb.Series(**{fieldpb: obj.ravel().tolist()})
         except KeyError:
             raise InvalidArgument(
                 f"Unsupported dtype '{obj.dtype}' for response message."

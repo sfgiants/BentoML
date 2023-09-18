@@ -40,3 +40,4 @@ Here's a simple example of using PyTorch Lightning with BentoML:
 .. autofunction:: bentoml.pytorch_lightning.load_model
 
 .. autofunction:: bentoml.pytorch_lightning.get
+

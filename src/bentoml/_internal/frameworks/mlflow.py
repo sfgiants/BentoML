@@ -96,7 +96,7 @@ def load_model(
 
 
 def import_model(
-    name: Tag | str,
+    name: str,
     model_uri: str,
     *,
     signatures: dict[str, ModelSignature] | dict[str, ModelSignatureDict] | None = None,

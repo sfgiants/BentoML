@@ -10,7 +10,7 @@ This guide is intended to aid advanced BentoML users with a better understanding
 
     * basic load testing with locust
     * load testing tips:
-        * production mode vs development mode
+        * the use of --production
         * enable/disable logging
         * always run locust client on a separate machine
 
@@ -18,7 +18,6 @@ This guide is intended to aid advanced BentoML users with a better understanding
         * ``bentoml serve`` options: --api-worker, --backlog, --timeout
         * configure runner resources
         * configure adaptive batching (max_latency, max_batch_size)
-	* embedded runner
 
     * existing benchmark results and comparisons
 
@@ -35,3 +34,4 @@ This guide is intended to aid advanced BentoML users with a better understanding
     `BentoML development guide <https://github.com/bentoml/BentoML/blob/main/DEVELOPMENT.md>`_
     and `documentation guide <https://github.com/bentoml/BentoML/blob/main/docs/README.md>`_
     to get started.
+

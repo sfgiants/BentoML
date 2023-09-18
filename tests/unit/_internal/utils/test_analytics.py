@@ -1,15 +1,19 @@
 # pylint: disable=unused-argument
 from __future__ import annotations
 
-import logging
 import typing as t
+import logging
 from typing import TYPE_CHECKING
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
+from unittest.mock import patch
 
 import pytest
-from prometheus_client.parser import \
-    text_string_to_metric_families  # type: ignore (no prometheus types)
-from schema import And, Or, Schema
+from schema import Or
+from schema import And
+from schema import Schema
+from prometheus_client.parser import (
+    text_string_to_metric_families,  # type: ignore (no prometheus types)
+)
 
 import bentoml
 from bentoml._internal.utils import analytics
@@ -132,6 +136,7 @@ def test_track_serve_init(
     production: bool,
     caplog: LogCaptureFixture,
 ):
+
     mock_do_not_track.return_value = False
     mock_usage_event_debugging.return_value = False
 
@@ -144,7 +149,6 @@ def test_track_serve_init(
         production=production,
         serve_info=analytics.usage_stats.get_serve_info(),
         serve_kind="http",
-        from_server_api=False,
     )
 
     assert mock_do_not_track.called
@@ -157,7 +161,6 @@ def test_track_serve_init(
             production=production,
             serve_info=analytics.usage_stats.get_serve_info(),
             serve_kind="http",
-            from_server_api=False,
         )
     assert "model_types" in caplog.text
 
@@ -182,7 +185,6 @@ def test_track_serve_init_no_bento(
             production=False,
             serve_info=analytics.usage_stats.get_serve_info(),
             serve_kind="http",
-            from_server_api=False,
         )
     assert "model_types" not in caplog.text
 

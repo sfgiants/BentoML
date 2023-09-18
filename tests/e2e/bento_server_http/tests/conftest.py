@@ -28,14 +28,7 @@ def pytest_collection_modifyitems(
     session: Session, config: Config, items: list[Item]
 ) -> None:
     subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            f"{os.path.join(PROJECT_DIR, 'requirements.txt')}",
-        ]
+        ["pip", "install", "-r", f"{os.path.join(PROJECT_DIR, 'requirements.txt')}"]
     )
     subprocess.check_call([sys.executable, f"{os.path.join(PROJECT_DIR, 'train.py')}"])
 
@@ -49,16 +42,7 @@ def fixture_server_config_file(request: FixtureRequest) -> str:
     return os.path.join(PROJECT_DIR, "configs", request.param)
 
 
-@pytest.fixture(autouse=True, scope="package")
-def bento_directory(request: FixtureRequest):
-    bento_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    os.chdir(bento_path)
-    sys.path.insert(0, bento_path)
-    yield
-    os.chdir(request.config.invocation_dir)
-    sys.path.pop(0)
-
-
+@pytest.mark.usefixtures("change_test_dir")
 @pytest.fixture(scope="session")
 def host(
     bentoml_home: str,

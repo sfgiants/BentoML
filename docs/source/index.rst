@@ -61,11 +61,32 @@ Learn BentoML
 
         Learn how BentoML works together with other tools and products in the Data/ML ecosystem
 
-    .. grid-item-card:: `💬 BentoML Community <https://l.bentoml.com/join-slack>`_
-        :link: https://l.bentoml.com/join-slack
+    .. grid-item-card:: `💬 BentoML Community <https://l.linklyhq.com/l/ktOX>`_
+        :link: https://l.linklyhq.com/l/ktOX
         :link-type: url
 
         Join us in our Slack community where hundreds of ML practitioners are contributing to the project, helping other users, and discuss all things MLOps.
+
+
+Beyond Model Serving
+--------------------
+
+.. grid:: 1 2 2 2
+    :gutter: 3
+    :margin: 0
+    :padding: 3 4 0 0
+
+    .. grid-item-card:: `🦄️ Yatai <https://github.com/bentoml/Yatai>`_
+        :link: https://github.com/bentoml/Yatai
+        :link-type: url
+
+        Model Deployment at scale on Kubernetes.
+
+    .. grid-item-card:: `🚀 bentoctl <https://github.com/bentoml/bentoctl>`_
+        :link: https://github.com/bentoml/bentoctl
+        :link-type: url
+
+        Fast model deployment on any cloud platform.
 
 
 Staying Informed
@@ -114,7 +135,7 @@ Getting Involved
 
 BentoML has a thriving open source community where hundreds of ML practitioners are
 contributing to the project, helping other users and discuss all things MLOps.
-`👉 Join us on slack today! <https://l.bentoml.com/join-slack>`_
+`👉 Join us on slack today! <https://l.linklyhq.com/l/ktOX>`_
 
 
 .. toctree::
@@ -128,17 +149,9 @@ contributing to the project, helping other users and discuss all things MLOps.
    integrations/index
    reference/index
    Examples <https://github.com/bentoml/BentoML/tree/main/examples>
-   Community <https://l.bentoml.com/join-slack>
+   Community <https://l.linklyhq.com/l/ktOX>
    GitHub <https://github.com/bentoml/BentoML>
    Blog <https://modelserving.com>
-
-.. toctree::
-   :caption: Ecosystem
-   :hidden:
-
-   ☁️ BentoCloud <https://www.bentoml.com/bento-cloud/>
-   🦄️ Yatai <https://github.com/bentoml/Yatai>
-   🚀 bentoctl <https://github.com/bentoml/bentoctl>
 
 
 .. |pypi_status| image:: https://img.shields.io/pypi/v/bentoml.svg?style=flat-square
@@ -150,6 +163,6 @@ contributing to the project, helping other users and discuss all things MLOps.
 .. |documentation_status| image:: https://readthedocs.org/projects/bentoml/badge/?version=latest&style=flat-square
    :target: https://docs.bentoml.org/
 .. |join_slack| image:: https://badgen.net/badge/Join/BentoML%20Slack/cyan?icon=slack&style=flat-square
-   :target: https://l.bentoml.com/join-slack
+   :target: https://l.linklyhq.com/l/ktOX
 .. |github_stars| image:: https://img.shields.io/github/stars/bentoml/BentoML?color=%23c9378a&label=github&logo=github&style=flat-square
    :target: https://github.com/bentoml/bentoml

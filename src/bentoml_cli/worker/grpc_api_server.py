@@ -77,14 +77,6 @@ import click
     default="v1",
     show_default=True,
 )
-@click.option(
-    "--development-mode",
-    type=click.BOOL,
-    help="Run the API server in development mode",
-    is_flag=True,
-    default=False,
-    show_default=True,
-)
 def main(
     bento_identifier: str,
     host: str,
@@ -100,7 +92,6 @@ def main(
     ssl_keyfile: str | None,
     ssl_ca_certs: str | None,
     protocol_version: str,
-    development_mode: bool,
 ):
     """
     Start BentoML API server.
@@ -122,7 +113,7 @@ def main(
         # and should not be concerned with the status of its runners
         BentoMLContainer.config.runner_probe.enabled.set(False)
 
-    BentoMLContainer.development_mode.set(development_mode)
+    BentoMLContainer.development_mode.set(False)
     if prometheus_dir is not None:
         BentoMLContainer.prometheus_multiproc_dir.set(prometheus_dir)
     if runner_map is not None:

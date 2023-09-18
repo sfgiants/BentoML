@@ -130,7 +130,7 @@ def load_model(
 
 
 def save_model(
-    name: Tag | str,
+    name: str,
     model: "tf_ext.KerasModel",
     *,
     tf_signatures: "tf_ext.ConcreteFunction" | None = None,

@@ -228,7 +228,7 @@ Sequential Runs
         ocr_text = ocr_runner.run(input)
         return transformers_runner.run(ocr_text)
 
-It’s as simple as creating two runners and invoking them synchronously in your prediction endpoint. Note that an async endpoint is often preferred in these use cases as the primary event loop is yielded while waiting for other IO-expensive tasks.
+It’s as simple as creating two runners and invoking them synchronously in your prediction endpoint. Note that an async endpoint is often preferred in these use cases as the primary event loop is yielded while waiting for other IO-expensive tasks. 
 
 For example, the same API above can be achieved as an ``async`` endpoint:
 
@@ -416,14 +416,10 @@ can be specified for the ``nvidia.com/gpu`` key. For example, the following conf
               resources:
                 nvidia.com/gpu: [2, 4]
 
-For the detailed information on the meaning of each resource allocation configuration, see :doc:`/guides/scheduling`.
+Timeout
+^^^^^^^
 
-Traffic Control
-^^^^^^^^^^^^^^^
-
-Same as API server, you can also configure the traffic settings for both all runners and individual runner.
-Specifcally, ``traffic.timeout`` defines the amount of time in seconds that the runner will wait for a response from the model before timing out.
-``traffic.max_concurrency`` defines the maximum number of concurrent requests the runner will accept before returning an error.
+Runner timeout defines the amount of time in seconds to wait before calls a runner is timed out on the API server.
 
 .. tab-set::
 
@@ -434,9 +430,7 @@ Specifcally, ``traffic.timeout`` defines the amount of time in seconds that the 
           :caption: ⚙️ `configuration.yml`
 
           runners:
-            traffic:
-              timeout: 60
-              max_concurrency: 10
+            timeout: 60
 
     .. tab-item:: Individual Runner
        :sync: individual_runner
@@ -446,9 +440,7 @@ Specifcally, ``traffic.timeout`` defines the amount of time in seconds that the 
 
           runners:
             iris_clf:
-              traffic:
-                timeout: 60
-                max_concurrency: 10
+              timeout: 60
 
 Access Logging
 ^^^^^^^^^^^^^^

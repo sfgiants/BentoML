@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import contextlib
-import contextvars
 import os
 import typing as t
+import contextvars
 from abc import ABC
 from abc import abstractmethod
 from typing import TYPE_CHECKING
@@ -73,38 +72,21 @@ class Metadata(t.Mapping[str, str], ABC):
         """
 
 
-class ServiceContext:
-    def __init__(self) -> None:
-        self._request_var: contextvars.ContextVar[
-            ServiceContext.RequestContext
-        ] = contextvars.ContextVar("request")
-        self._response_var: contextvars.ContextVar[
-            ServiceContext.ResponseContext
-        ] = contextvars.ContextVar("response")
-        # A dictionary for storing global state shared by the process
-        self.state: dict[str, t.Any] = {}
+@attr.define
+class InferenceApiContext:
+    request: "RequestContext"
+    response: "ResponseContext"
 
-    @contextlib.contextmanager
-    def in_request(
-        self, request: starlette.requests.Request
-    ) -> t.Generator[ServiceContext, None, None]:
-        request_token = self._request_var.set(
-            ServiceContext.RequestContext.from_http(request)
-        )
-        response_token = self._response_var.set(ServiceContext.ResponseContext())
-        try:
-            yield self
-        finally:
-            self._request_var.reset(request_token)
-            self._response_var.reset(response_token)
+    def __init__(self, request: "RequestContext", response: "ResponseContext"):
+        self.request = request
+        self.response = response
 
-    @property
-    def request(self) -> RequestContext:
-        return self._request_var.get()
+    @staticmethod
+    def from_http(request: "starlette.requests.Request") -> "InferenceApiContext":
+        request_ctx = InferenceApiContext.RequestContext.from_http(request)
+        response_ctx = InferenceApiContext.ResponseContext()
 
-    @property
-    def response(self) -> ResponseContext:
-        return self._response_var.get()
+        return InferenceApiContext(request_ctx, response_ctx)
 
     @attr.define
     class RequestContext:
@@ -117,11 +99,11 @@ class ServiceContext:
             self.headers = metadata
             self.query_params = query_params
 
-        @classmethod
+        @staticmethod
         def from_http(
-            cls, request: starlette.requests.Request
-        ) -> ServiceContext.RequestContext:
-            return cls(
+            request: "starlette.requests.Request",
+        ) -> "InferenceApiContext.RequestContext":
+            return InferenceApiContext.RequestContext(
                 request.headers,  # type: ignore # coercing Starlette types to Metadata
                 request.query_params,  # type: ignore
             )
@@ -170,9 +152,6 @@ class _ServiceTraceContext:
     _request_id_var = contextvars.ContextVar(
         "_request_id_var", default=t.cast("t.Optional[int]", None)
     )
-    _service_name_var = contextvars.ContextVar(
-        "_service_name_var", default=t.cast("t.Optional[str]", None)
-    )
 
     @property
     def trace_id(self) -> t.Optional[int]:
@@ -185,7 +164,7 @@ class _ServiceTraceContext:
 
     @property
     def sampled(self) -> int:
-        from opentelemetry import trace
+        from opentelemetry import trace  # type: ignore
 
         span = trace.get_current_span()
         if span is None:
@@ -194,7 +173,7 @@ class _ServiceTraceContext:
 
     @property
     def span_id(self) -> t.Optional[int]:
-        from opentelemetry import trace
+        from opentelemetry import trace  # type: ignore
 
         span = trace.get_current_span()
         if span is None:
@@ -211,14 +190,6 @@ class _ServiceTraceContext:
     @request_id.setter
     def request_id(self, request_id: t.Optional[int]) -> None:
         self._request_id_var.set(request_id)
-
-    @property
-    def service_name(self) -> t.Optional[str]:
-        return self._service_name_var.get()
-
-    @service_name.setter
-    def service_name(self, service_name: t.Optional[str]) -> None:
-        self._service_name_var.set(service_name)
 
 
 class _ComponentContext:

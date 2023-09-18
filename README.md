@@ -24,7 +24,7 @@ for the easiest and fastest way to deploy your bento.
 - [Examples](https://github.com/bentoml/BentoML/tree/main/examples) - Gallery of sample projects using BentoML
 - [ML Framework Guides](https://docs.bentoml.org/en/latest/frameworks/index.html) - Best practices and example usages by the ML framework of your choice
 - [Advanced Guides](https://docs.bentoml.org/en/latest/guides/index.html) - Learn about BentoML's internals, architecture and advanced features
-- Need help? [Join BentoML Community Slack 💬](https://l.bentoml.com/join-slack)
+- Need help? [Join BentoML Community Slack 💬](https://l.linklyhq.com/l/ktOh)
 
 ---
 
@@ -118,7 +118,7 @@ bentoml serve
 Sent a prediction request:
 
 ```bash
-curl -F 'image=@samples/1.png' http://127.0.0.1:3000/predict
+curl -F 'image=@samples/1.png' http://127.0.0.1:3000/predict_image
 ```
 
 Build a Bento and generate a docker image:
@@ -140,7 +140,7 @@ For a more detailed user guide, check out the [BentoML Tutorial](https://docs.be
 
 ## Community
 
-- For general questions and support, join the [community slack](https://l.bentoml.com/join-slack).
+- For general questions and support, join the [community slack](https://l.linklyhq.com/l/ktOh).
 - To receive release notification, star & watch the BentoML project on [GitHub](https://github.com/bentoml/BentoML).
 - To report a bug or suggest a feature request, use [GitHub Issues](https://github.com/bentoml/BentoML/issues/new/choose).
 - To stay informed with community updates, follow the [BentoML Blog](http://modelserving.com) and [@bentomlai](http://twitter.com/bentomlai) on Twitter.
@@ -149,7 +149,7 @@ For a more detailed user guide, check out the [BentoML Tutorial](https://docs.be
 
 There are many ways to contribute to the project:
 
-- If you have any feedback on the project, share it under the `#bentoml-contributors` channel in the [community slack](https://l.bentoml.com/join-slack).
+- If you have any feedback on the project, share it under the `#bentoml-contributors` channel in the [community slack](https://l.linklyhq.com/l/ktOh).
 - Report issues you're facing and "Thumbs up" on issues and feature requests that are relevant to you.
 - Investigate bugs and reviewing other developer's pull requests.
 - Contributing code or documentation to the project by submitting a GitHub pull request. Check out the [Development Guide](https://github.com/bentoml/BentoML/blob/main/DEVELOPMENT.md).
