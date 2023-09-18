@@ -70,7 +70,6 @@ dependencies = [
     "singledispatchmethod;python_version<'3.8'",
     "pickle5;python_version<'3.8'",
 ]
-dynamic = ["version"]
 
 [project.urls]
 "Documentation" = "https://docs.bentoml.org/en/latest/"
