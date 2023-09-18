@@ -24,4 +24,4 @@ See https://github.com/pypa/pip/issues/5466. I will remove it now.
     )
     shutil.rmtree(stale_egg_info)
 
-setuptools.setup()
+setuptools.setup(version="1.0.17")
